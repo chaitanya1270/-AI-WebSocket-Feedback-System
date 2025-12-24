@@ -1,0 +1,104 @@
+name: Security Scan (Trivy)
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  trivy-scan:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------
+      # Checkout code
+      # -----------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =====================================================
+      # PR SCAN – LOG OUTPUT (for developers)
+      # =====================================================
+      - name: Trivy scan (PR – table output for logs)
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: 1
+
+      # =====================================================
+      # PR SCAN – SARIF (for Security tab)
+      # =====================================================
+      - name: Trivy scan (PR – SARIF)
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-pr.sarif
+          exit-code: 0
+
+      # =====================================================
+      # MAIN BRANCH SCAN – LOG OUTPUT
+      # =====================================================
+      - name: Trivy scan (main – table output)
+        if: github.ref == 'refs/heads/main'
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: 1
+
+      # =====================================================
+      # MAIN BRANCH SCAN – SARIF
+      # =====================================================
+      - name: Trivy scan (main – SARIF)
+        if: github.ref == 'refs/heads/main'
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-main.sarif
+          exit-code: 0
+
+      # =====================================================
+      # Upload SARIF (PR)
+      # =====================================================
+      - name: Upload Trivy SARIF (PR)
+        if: github.event_name == 'pull_request'
+        uses: github/codeql-action/upload-sarif@v4
+        continue-on-error: true
+        with:
+          sarif_file: trivy-pr.sarif
+      
+      # =====================================================
+      # Upload SARIF (main)
+      # =====================================================
+      - name: Upload Trivy SARIF (main)
+        if: github.ref == 'refs/heads/main'
+        uses: github/codeql-action/upload-sarif@v4
+        continue-on-error: true
+        with:
+          sarif_file: trivy-main.sarif
